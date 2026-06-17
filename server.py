@@ -1906,6 +1906,51 @@ async def api_system_status(request):
 
 
 # --- Entry point / 启动入口 ---
+@mcp.custom_route("/api/backup/buckets", methods=["GET"])
+async def api_backup_buckets(request):
+    """Download the entire buckets directory as a tar.gz backup."""
+    from starlette.responses import FileResponse, JSONResponse
+    from starlette.background import BackgroundTask
+    import tarfile
+    import tempfile
+    import time
+
+    err = _require_auth(request)
+    if err:
+        return err
+
+    buckets_dir = config.get("buckets_dir", "")
+    if not buckets_dir or not os.path.isdir(buckets_dir):
+        return JSONResponse(
+            {"error": f"buckets_dir not found: {buckets_dir}"},
+            status_code=404,
+        )
+
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"ombre-buckets-{timestamp}.tar.gz"
+    tmp_path = os.path.join(tempfile.gettempdir(), filename)
+
+    try:
+        with tarfile.open(tmp_path, "w:gz") as tar:
+            tar.add(buckets_dir, arcname="buckets")
+    except Exception as e:
+        return JSONResponse(
+            {"error": f"failed to create backup: {e}"},
+            status_code=500,
+        )
+
+    def cleanup():
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+
+    return FileResponse(
+        tmp_path,
+        media_type="application/gzip",
+        filename=filename,
+        background=BackgroundTask(cleanup),
+    )
 if __name__ == "__main__":
     transport = config.get("transport", "stdio")
     logger.info(f"Ombre Brain starting | transport: {transport}")
