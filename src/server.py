@@ -2472,8 +2472,8 @@ async def api_self(request: Request) -> Response:
         all_b = await bucket_mgr.list_all(include_archive=False)
         self_buckets = [
             b for b in all_b
-            if b["metadata"].get("type") == "self"
-            or "__self__" in (b["metadata"].get("tags") or [])
+            if b["metadata"].get("type") == "i"
+            or "__i__" in (b["metadata"].get("tags") or [])
         ]
         self_buckets.sort(key=lambda b: b["metadata"].get("created", ""), reverse=True)
         result = []
