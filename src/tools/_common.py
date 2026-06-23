@@ -188,7 +188,7 @@ async def count_high_importance() -> int:
         all_b = await rt.bucket_mgr.list_all(include_archive=False)
         return sum(
             1 for b in all_b
-            if int(b.get("metadata", {}).get("importance", 0)) >= _HIGH_IMP_THRESHOLD
+            if int(b.get("metadata", {}).get("importance") or 0) >= _HIGH_IMP_THRESHOLD
             and not b.get("metadata", {}).get("pinned")
             and not b.get("metadata", {}).get("protected")
         )
