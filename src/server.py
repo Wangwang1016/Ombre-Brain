@@ -125,7 +125,11 @@ except ValueError:
 # 详见 ENV_VARS.md。
 OMBRE_HOOK_URL = os.environ.get("OMBRE_HOOK_URL", "").strip()
 OMBRE_HOOK_SKIP = os.environ.get("OMBRE_HOOK_SKIP", "").strip().lower() in ("1", "true", "yes", "on")
-
+# Optional static Bearer token for MCP clients without OAuth support.
+# Keep empty to require OAuth only.
+OMBRE_MCP_STATIC_TOKEN = os.environ.get(
+    "OMBRE_MCP_STATIC_TOKEN", ""
+).strip()
 
 # ============================================================
 # 调参面板 / Tunable constants
@@ -4863,8 +4867,27 @@ if __name__ == "__main__":
                     if path.startswith("/mcp"):
                         headers = {k.lower(): v for k, v in scope.get("headers", [])}
                         auth = headers.get(b"authorization", b"").decode("latin-1")
-                        if not (auth.startswith("Bearer ") and _is_valid_mcp_token(auth[7:])):
+                        
+                        provided_token = (
+                            auth[7:] if auth.startswith("Bearer ") else ""
+                        )
+
+                        oauth_ok = (
+                            bool(provided_token)
+                            and _is_valid_mcp_token(provided_token)
+                        )
+
+                        static_ok = (
+                            bool(OMBRE_MCP_STATIC_TOKEN)
+                            and hmac.compare_digest(
+                                provided_token,
+                                OMBRE_MCP_STATIC_TOKEN,
+                            )
+                        )
+
+                        if not (oauth_ok or static_ok):
                             # Build public base URL from ASGI scope headers
+                            
                             proto = headers.get(b"x-forwarded-proto", b"").decode() or scope.get("scheme", "http")
                             host = (headers.get(b"x-forwarded-host") or headers.get(b"host", b"")).decode()
                             base = f"{proto}://{host}"
