@@ -934,11 +934,11 @@ if __name__ == "__main__":
         # 不填或 true → 保持默认：必须 OAuth Bearer token。
         _mcp_auth_required = bool(config.get("mcp_require_auth", True))
 
-      # Optional static Bearer token for MCP clients without OAuth support.
-      # Keep empty to require OAuth only.
-      OMBRE_MCP_STATIC_TOKEN = os.environ.get(
+        # Optional static Bearer token for MCP clients without OAuth support.
+        # Keep empty to require OAuth only.
+        OMBRE_MCP_STATIC_TOKEN = os.environ.get(
             "OMBRE_MCP_STATIC_TOKEN", ""
-      ).strip()
+        ).strip()
 
         class _MCPAuthMiddleware:
             def __init__(self, app):
