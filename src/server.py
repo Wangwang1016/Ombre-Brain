@@ -934,6 +934,12 @@ if __name__ == "__main__":
         # 不填或 true → 保持默认：必须 OAuth Bearer token。
         _mcp_auth_required = bool(config.get("mcp_require_auth", True))
 
+      # Optional static Bearer token for MCP clients without OAuth support.
+      # Keep empty to require OAuth only.
+      OMBRE_MCP_STATIC_TOKEN = os.environ.get(
+            "OMBRE_MCP_STATIC_TOKEN", ""
+      ).strip()
+
         class _MCPAuthMiddleware:
             def __init__(self, app):
                 self.app = app
@@ -944,7 +950,26 @@ if __name__ == "__main__":
                     if path.startswith("/mcp"):
                         headers = {k.lower(): v for k, v in scope.get("headers", [])}
                         auth = headers.get(b"authorization", b"").decode("latin-1")
-                        if not (auth.startswith("Bearer ") and _is_valid_mcp_token(auth[7:])):
+                      
+                        provided_token = (
+                            auth[7:] if auth.startswith("Bearer ") else ""
+                        )
+
+                        oauth_ok = (
+                            bool(provided_token)
+                            and _is_valid_mcp_token(provided_token)
+                        )
+
+                        static_ok = (
+                            bool(OMBRE_MCP_STATIC_TOKEN)
+                            and hmac.compare_digest(
+                                provided_token,
+                                OMBRE_MCP_STATIC_TOKEN,
+                            )
+                        )
+
+                        if not (oauth_ok or static_ok):
+                          
                             # Build public base URL from ASGI scope headers
                             proto = headers.get(b"x-forwarded-proto", b"").decode() or scope.get("scheme", "http")
                             host = (headers.get(b"x-forwarded-host") or headers.get(b"host", b"")).decode()
