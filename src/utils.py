@@ -650,6 +650,11 @@ def load_config(config_path: Optional[str] = None) -> dict:
     except (TypeError, ValueError, OverflowError):
         config["media_max_bytes"] = 25 * 1024 * 1024
 
+    # 发言归属的补充称呼也能从环境变量给：名字是每台部署自己的事，不该写进代码，
+    # 而配置文件放在持久卷里不好改。逗号（中英文）或顿号分隔，和 config.yaml
+    # 里 attribution 的两张表合并，不覆盖。
+    _apply_attribution_env_names(config)
+
     # --- Ensure bucket storage directories exist ---
     # --- 确保记忆桶存储目录存在 ---
     buckets_dir: str = str(config["buckets_dir"])
@@ -658,6 +663,39 @@ def load_config(config_path: Optional[str] = None) -> dict:
     os.makedirs(str(config["media_dir"]), exist_ok=True)
 
     return config
+
+
+_ATTRIBUTION_ENV = (
+    ("OMBRE_SELF_NAMES", "self_names"),
+    ("OMBRE_USER_NAMES", "user_names"),
+)
+
+
+def _split_env_names(raw: str) -> list[str]:
+    parts = re.split(r"[,，、]", raw or "")
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _apply_attribution_env_names(config: dict) -> None:
+    section = config.get("attribution")
+    if not isinstance(section, dict):
+        section = {}
+    changed = False
+    for env_name, key in _ATTRIBUTION_ENV:
+        extra = _split_env_names(os.environ.get(env_name, ""))
+        if not extra:
+            continue
+        current = section.get(key)
+        if isinstance(current, str):
+            current = [current]
+        merged = list(current) if isinstance(current, list) else []
+        for name in extra:
+            if name not in merged:
+                merged.append(name)
+        section[key] = merged
+        changed = True
+    if changed:
+        config["attribution"] = section
 
 
 def _deep_merge(base: dict, override: dict) -> dict:

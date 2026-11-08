@@ -24,6 +24,8 @@
 - `OMBRE_BUCKETS_DIR`：`OMBRE_VAULT_DIR` 的旧兼容名。
 - `OMBRE_MEDIA_DIR`：永久媒体目录；默认 `<数据根目录>/_media`。
 - `OMBRE_MEDIA_MAX_BYTES`：单个媒体文件最大字节数，默认 25 MiB。
+- `OMBRE_SELF_NAMES`：我这一侧的自称（发言归属用），逗号或顿号分隔；与 `config.yaml` 的 `attribution.self_names` 合并。
+- `OMBRE_USER_NAMES`：对方的名字和昵称（发言归属用），逗号或顿号分隔；与 `attribution.user_names` 合并。没登记的名字会被当成第三方。
 - `OMBRE_CONFIG_PATH`：持久配置文件路径。
 - `OMBRE_CODE_DIR`：容器中持久运行代码目录。
 - `OMBRE_LOG_DIR`：日志目录。
