@@ -400,9 +400,9 @@ async def surface_search(
             rendered, entry_tokens = render_stored_bucket(
                 bucket, header, _footprint(bucket)
             )
-        # 引语：唯一的出口就在这里。默认不附加——每一条浮现路径
-        # （breath / dream / catalog / feel）走的都是白名单渲染，读不到这个字段。
-        # 只有我在这次调用里明确说了「我想知道当时是怎么说的」，它才出现。
+        # 引语：检索时默认不附加，只有我在这次调用里明确说了
+        # 「我想知道当时是怎么说的」，它才出现。开窗 breath() 浮现另有一处
+        # 出口（surface.py 的 _render_surfaced）；dream / catalog / feel 仍读不到。
         # 附加之后必须重算 token：预算是按实际返回的字数算的，不是按正文。
         if with_quotes:
             quote_block = render_quotes(

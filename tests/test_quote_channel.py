@@ -122,19 +122,63 @@ async def test_too_many_quotes_is_rejected_and_nothing_is_written(bucket_mgr):
 
 
 # ---------------------------------------------------------------
-# 结构退化：四条浮现路径一条都不能带出引语
+# 开窗浮现：引语跟着自己那条记忆一起出现
 # ---------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_default_surfacing_never_returns_quotes(bucket_mgr):
-    """breath()：睁眼看看自己记得什么。引语不该在这里冒出来。"""
+async def test_default_surfacing_carries_quotes_with_their_memory(bucket_mgr):
+    """breath()：浮上来的记忆带着当时的原话，贴在那条记忆后面。"""
     await _hold_with_quote(bucket_mgr)
 
     out = await breath_dispatch()
 
     assert BODY in out
-    assert QUOTE not in out
+    assert f"🗣️ 「{QUOTE}」" in out
+    assert out.index(BODY) < out.index(QUOTE)
+
+
+@pytest.mark.asyncio
+async def test_surfacing_without_quotes_is_unchanged(bucket_mgr):
+    """没存引语的记忆，浮现出来和以前一模一样，不多出任何东西。"""
+    _install_runtime(bucket_mgr)
+    await hold_dispatch(content=BODY)
+
+    out = await breath_dispatch()
+
+    assert BODY in out
+    assert "🗣️" not in out
+
+
+@pytest.mark.asyncio
+async def test_surfaced_quotes_count_toward_the_budget(bucket_mgr):
+    """引语算进那条记忆自己的 token：带上引语放不下，就整条不浮现，不会只给正文。"""
+    from tools.breath._shared import footprint_reader
+    from tools.breath._verbatim import render_stored_bucket
+    from tools.breath.surface import _render_surfaced
+
+    quotes = [f"第{i}句" + "长" * 90 for i in range(MAX_QUOTES)]
+    await _hold_with_quote(bucket_mgr, quotes=quotes)
+    bucket = (await bucket_mgr.list_all())[0]
+    score = rt.decay_engine.calculate_score(bucket["metadata"])
+    header = f"[权重:{score:.2f}] [bucket_id:{bucket['id']}]"
+    footprint = footprint_reader()(bucket)
+    _, plain_tokens = render_stored_bucket(bucket, header, footprint)
+    _, quoted_tokens = _render_surfaced(bucket, header, footprint)
+    assert quoted_tokens > plain_tokens
+
+    squeezed = await breath_dispatch(max_tokens=(plain_tokens + quoted_tokens) // 2)
+    assert BODY not in squeezed
+    assert quotes[0] not in squeezed
+
+    roomy = await breath_dispatch(max_tokens=quoted_tokens + 50)
+    assert BODY in roomy
+    assert quotes[0] in roomy
+
+
+# ---------------------------------------------------------------
+# 结构退化：其余浮现路径一条都不能带出引语
+# ---------------------------------------------------------------
 
 
 @pytest.mark.asyncio

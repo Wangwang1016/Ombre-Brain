@@ -1511,7 +1511,7 @@ class BucketManager:
         # 引语：当时说出口、并且当时就知道它重要的那几句话，原样存下。
         # 落在 metadata 而不是正文，是为了让渲染路径**结构上就拿不到**——
         # render_stored_bucket / dream / catalog 都是白名单渲染，不会碰这个字段。
-        # "平时不返回"不能靠"记得别渲染"。
+        # 要它出现的地方（breath 浮现、quotes=True 的检索）都是显式附上的。
         if quotes:
             metadata["quotes"] = self._sanitize_quotes(quotes)
         if imported:

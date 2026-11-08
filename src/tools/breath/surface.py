@@ -20,6 +20,8 @@ tools/breath/surface.py — 无 query 浮现模式
   核心准则不受时间过滤影响——它们是准则不是事件，按设计始终在场
 - 末尾 1~2 条「久未浮现」passive association（imp>=8 且未访问 / imp>=9 且 7 天未活跃），
   3.6.0 起 24 小时内新建的桶不进这个池
+- 浮现的每一条记忆（核心准则、普通浮现、久未浮现、偶遇）都带上它自己的引语，
+  贴在那条记忆后面、算进那条记忆的 token；放不下就整条跳过，和原来一样
 
 不做什么（边界）：
 - 不调用 touch()：浮现不能重置衰减计时器
@@ -42,6 +44,9 @@ from utils import parse_bool, parse_iso_datetime
 from ._date_range import bucket_in_created_range
 from ._shared import bucket_has_tags, footprint_reader, render_within_budget
 from ._verbatim import render_stored_bucket
+from ombrebrain.storage.attribution import names_from_config
+from ombrebrain.storage.quote_store import quotes_from_metadata, render_quotes
+from utils import count_tokens_approx
 
 # U-07 fix: throttle the sampling-fallback INFO log to once per 5 minutes.
 # 库小且 sampling=ON 时此分支每次 breath 都触发，原本会刷屏；改为 ≥300s
@@ -69,6 +74,23 @@ _PIN_BUDGET_NOTICE = (
 
 def _can_surface(bucket: dict) -> bool:
     return _SURFACE_POLICY.evaluate_bucket(bucket, mode="spontaneous").allowed
+
+
+def _render_surfaced(bucket: dict, header: str, footprint: str) -> tuple[str, int]:
+    """浮现时渲染一条记忆，连同它的引语。
+
+    引语接在这条记忆后面（和 breath_search(quotes=True) 同一种样子），
+    token 按带引语之后的整条重算，所以预算照旧按整条判断放不放得下。
+    """
+    rendered, entry_tokens = render_stored_bucket(bucket, header, footprint)
+    quote_block = render_quotes(
+        quotes_from_metadata(bucket.get("metadata") or {}),
+        **names_from_config(getattr(rt, "config", None)),
+    )
+    if quote_block:
+        rendered = f"{rendered}\n{quote_block}"
+        entry_tokens = count_tokens_approx(rendered)
+    return rendered, entry_tokens
 
 
 def _budget_notice(*, omitted: int, used: int, limit: int) -> str:
@@ -261,7 +283,7 @@ async def surface_default(
     pinned_required_tokens = 0
     for b in pinned_buckets:
         try:
-            rendered, entry_tokens = render_stored_bucket(
+            rendered, entry_tokens = _render_surfaced(
                 b,
                 f"📌 [核心准则] [bucket_id:{b['id']}]",
                 _footprint(b),
@@ -406,7 +428,7 @@ async def surface_default(
     for b in candidates:
         try:
             score = rt.decay_engine.calculate_score(b["metadata"])
-            rendered, entry_tokens = render_stored_bucket(
+            rendered, entry_tokens = _render_surfaced(
                 b,
                 f"[权重:{score:.2f}] [bucket_id:{b['id']}]",
                 _footprint(b),
@@ -490,7 +512,7 @@ async def surface_default(
             random.shuffle(passive_pool)
             for b in passive_pool[:2]:
                 try:
-                    rendered, entry_tokens = render_stored_bucket(
+                    rendered, entry_tokens = _render_surfaced(
                         b,
                         f"💤 [久未浮现] [bucket_id:{b['id']}]",
                         _footprint(b),
@@ -527,7 +549,7 @@ async def surface_default(
                 random.shuffle(resolved_pool)
                 for b in resolved_pool[:3]:
                     try:
-                        rendered, entry_tokens = render_stored_bucket(
+                        rendered, entry_tokens = _render_surfaced(
                             b,
                             f"✨ [偶遇] [bucket_id:{b['id']}]",
                             _footprint(b),
